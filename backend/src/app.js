@@ -11,17 +11,57 @@
 // usando multer com diskStorage. Não utilize provedores externos.
 
 const express = require('express');
+const path = require('node:path');
+const createDocumentRepository = require('./repositories/documentRepository');
+const createFileRepository = require('./repositories/fileRepository');
+const createDocumentService = require('./services/documentService');
+const createDocumentController = require('./controllers/documentController');
+const createDocumentRouter = require('./routes/documentRoutes');
+const { errorHandler } = require('./controllers/errorController');
 
-const app = express();
 const PORT = process.env.PORT || 3000;
+const DEFAULT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-app.use(express.json());
+function getMaxFileSize(value = process.env.MAX_FILE_SIZE_BYTES) {
+  if (value === undefined) {
+    return DEFAULT_MAX_FILE_SIZE;
+  }
 
-// Endpoint de verificação de saúde. As demais rotas (/upload, /documents,
-// /documents/:id/download) serão implementadas durante o Passo 2.
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
+  const maxFileSize = Number(value);
+  if (!Number.isSafeInteger(maxFileSize) || maxFileSize <= 0) {
+    throw new Error('MAX_FILE_SIZE_BYTES deve ser um inteiro positivo.');
+  }
+
+  return maxFileSize;
+}
+
+function createApp(options = {}) {
+  const app = express();
+  const fileRepository = createFileRepository({
+    storageDirectory: options.storageDirectory || path.resolve(__dirname, '../storage'),
+    maxFileSize: options.maxFileSize ?? getMaxFileSize(),
+  });
+  const documentRepository = options.documentRepository || createDocumentRepository();
+  const documentService = createDocumentService({ documentRepository, fileRepository });
+  const documentController = createDocumentController(documentService);
+  const documentRouter = createDocumentRouter(
+    documentController,
+    fileRepository.uploadSingle,
+  );
+
+  app.use(express.json());
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  app.use('/api', documentRouter);
+  app.use('/', documentRouter);
+  app.use(errorHandler);
+
+  return app;
+}
+
+const app = createApp();
 
 if (require.main === module) {
   app.listen(PORT, () => {
@@ -30,3 +70,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.createApp = createApp;
