@@ -3,6 +3,20 @@ const AppError = require('./appError');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// O multer entrega o nome original decodificado como latin1; aqui ele volta a ser UTF-8.
+function normalizeOriginalName(originalName) {
+  if (!originalName) {
+    return 'documento';
+  }
+
+  if (/[^\u0000-\u00ff]/.test(originalName)) {
+    return originalName;
+  }
+
+  const decodedName = Buffer.from(originalName, 'latin1').toString('utf8');
+  return decodedName.includes('\uFFFD') ? originalName : decodedName;
+}
+
 function toPublicDocument(document) {
   const { storedName, ...publicDocument } = document;
   return publicDocument;
@@ -30,7 +44,7 @@ function createDocumentService({ documentRepository, fileRepository }) {
 
       const document = {
         id: randomUUID(),
-        originalName: file.originalname || 'documento',
+        originalName: normalizeOriginalName(file.originalname),
         size: file.size,
         uploadedAt: new Date().toISOString(),
         owner: 'anonymous',

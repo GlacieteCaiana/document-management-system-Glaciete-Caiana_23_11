@@ -54,6 +54,30 @@ test('faz upload, lista e baixa um documento pelas rotas /api', async (t) => {
   assert.strictEqual(await downloadResponse.text(), 'conteudo do documento');
 });
 
+test('preserva o nome com acentos no upload e no download', async (t) => {
+  const baseUrl = await startTestServer(t);
+  const form = new FormData();
+  form.append('file', new Blob(['relatório'], { type: 'application/pdf' }), 'relatório final.pdf');
+
+  const uploadResponse = await fetch(`${baseUrl}/api/documents`, {
+    method: 'POST',
+    body: form,
+  });
+  assert.strictEqual(uploadResponse.status, 201);
+  const uploadedDocument = await uploadResponse.json();
+  assert.strictEqual(uploadedDocument.originalName, 'relatório final.pdf');
+
+  const downloadResponse = await fetch(
+    `${baseUrl}/api/documents/${uploadedDocument.id}/download`,
+  );
+  assert.strictEqual(downloadResponse.status, 200);
+  assert.match(
+    downloadResponse.headers.get('content-disposition'),
+    /filename="relatório final\.pdf"/,
+  );
+  assert.strictEqual(await downloadResponse.text(), 'relatório');
+});
+
 test('retorna erros para arquivo ausente e acima do limite', async (t) => {
   const baseUrl = await startTestServer(t, { maxFileSize: 4 });
 
