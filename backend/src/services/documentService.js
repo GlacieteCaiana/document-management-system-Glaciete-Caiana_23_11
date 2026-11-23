@@ -1,7 +1,6 @@
 const { randomUUID } = require('node:crypto');
 const AppError = require('./appError');
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = require('../utils/uuidPattern');
 
 // O multer entrega o nome original decodificado como latin1; aqui ele volta a ser UTF-8.
 function normalizeOriginalName(originalName) {

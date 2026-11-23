@@ -2,8 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const multer = require('multer');
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = require('../utils/uuidPattern');
 
 function createFileRepository({ storageDirectory, maxFileSize }) {
   fs.mkdirSync(storageDirectory, { recursive: true });
