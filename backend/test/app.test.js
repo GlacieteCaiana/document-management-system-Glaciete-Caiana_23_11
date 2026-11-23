@@ -54,6 +54,39 @@ test('faz upload, lista e baixa um documento pelas rotas /api', async (t) => {
   assert.strictEqual(await downloadResponse.text(), 'conteudo do documento');
 });
 
+test('lista e baixa separadamente arquivos com o mesmo nome', async (t) => {
+  const baseUrl = await startTestServer(t);
+  const emptyListResponse = await fetch(`${baseUrl}/api/documents`);
+  assert.strictEqual(emptyListResponse.status, 200);
+  assert.deepStrictEqual(await emptyListResponse.json(), { documents: [] });
+
+  const contents = [Buffer.from('primeiro'), Buffer.from([0, 255, 128, 42])];
+  const uploadedDocuments = [];
+
+  for (const content of contents) {
+    const form = new FormData();
+    form.append('file', new Blob([content], { type: 'application/octet-stream' }), 'arquivo.bin');
+    const response = await fetch(`${baseUrl}/api/documents`, { method: 'POST', body: form });
+    assert.strictEqual(response.status, 201);
+    uploadedDocuments.push(await response.json());
+  }
+
+  assert.notStrictEqual(uploadedDocuments[0].id, uploadedDocuments[1].id);
+  const listResponse = await fetch(`${baseUrl}/api/documents`);
+  assert.strictEqual(listResponse.status, 200);
+  const { documents } = await listResponse.json();
+  assert.strictEqual(documents.length, 2);
+
+  for (const [index, document] of uploadedDocuments.entries()) {
+    assert.deepStrictEqual(documents.find((item) => item.id === document.id), document);
+    assert.strictEqual(document.originalName, 'arquivo.bin');
+    assert.strictEqual(document.size, contents[index].length);
+    const response = await fetch(`${baseUrl}/api/documents/${document.id}/download`);
+    assert.strictEqual(response.status, 200);
+    assert.deepStrictEqual(Buffer.from(await response.arrayBuffer()), contents[index]);
+  }
+});
+
 test('preserva o nome com acentos no upload e no download', async (t) => {
   const baseUrl = await startTestServer(t);
   const form = new FormData();
@@ -105,6 +138,10 @@ test('retorna erros para arquivo ausente e acima do limite', async (t) => {
   });
   assert.strictEqual(oversizedResponse.status, 413);
   assert.strictEqual((await oversizedResponse.json()).error.code, 'FILE_TOO_LARGE');
+
+  const listResponse = await fetch(`${baseUrl}/api/documents`);
+  assert.strictEqual(listResponse.status, 200);
+  assert.deepStrictEqual(await listResponse.json(), { documents: [] });
 });
 
 test('retorna 404 para documento inexistente e mantém o health check', async (t) => {
